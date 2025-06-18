@@ -1,0 +1,23 @@
+{
+  "name": "momentum",
+  "version": "1.0.0",
+  "description": "Programmatic trading",
+  "repository": "https://github.com/willfolsom/momentum.git",
+  "author": "Will Folsom <folsomwg@gmail.com>",
+  "license": "n/a",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "@alpacahq/alpaca-trade-api": "^3.1.3",
+    "dotenv": "^16.5.0",
+    "robinhood": "^1.8.0",
+    "technicalindicators": "^3.1.0",
+    "yahoo-finance2": "^2.13.3"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3"
+  },
+  "scripts": {
+    "format": "prettier . --write"
+  }
+}
