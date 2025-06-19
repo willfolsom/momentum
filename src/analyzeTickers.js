@@ -213,6 +213,18 @@ function macdTable(allPicks) {
   console.table(out);
 }
 
+function isShortCandidate(metrics) {
+  const macdSignal = getMacdSignalAction(metrics.macdArr);
+
+  return (
+    metrics.rsi > 70 &&
+    metrics.macd < metrics.signal && // MACD below signal
+    metrics.return7d < 0 &&
+    metrics.ema9 < metrics.ema21 &&
+    macdSignal.condition === "MACD below Signal"
+  );
+}
+
 function getOverallRecommendation(allPicks) {
   let out = [];
 
@@ -251,6 +263,12 @@ function getOverallRecommendation(allPicks) {
         ticker: p.ticker,
         action: "AVOID",
         reason: "Negative returns, weak momentum",
+      });
+    } else if (isShortCandidate(p)) {
+      out.push({
+        ticker: p.ticker,
+        action: "SHORT",
+        reason: "Overbought + MACD bearish + momentum reversal",
       });
     } else {
       out.push({
