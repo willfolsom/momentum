@@ -16,7 +16,7 @@ However, Exhibit B.
 
 **Their close price June 11 4pm @ $37.74 to June 11 postMarketPrice $36.21 --> 4.03% drop**
 
-This code (i.e. THIS REPO) is suggesting a 3.93% drop.
+This code (i.e. THIS REPO) is suggesting a 3.93% drop, which is closer to the close date strategy but "way" off the "1W" for RH. It gets wayer offer.
 
 I know the UI and graph(s) can't be perfect. Repeat this set of moving targets for each stock. Times, dates, etc.
 
