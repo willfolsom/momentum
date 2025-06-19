@@ -76,7 +76,10 @@ async function analyzeTops() {
 
       // Adjustable params
       if (metrics && metrics.rsi < 70 && metrics.return7d > 0) {
-        results.push({ ticker, ...metrics });
+        // pull quote for match
+        const quote = await yahoo.quote(ticker);
+
+        results.push({ ticker, quote: quote.postMarketPrice });
       }
     } catch (e) {
       console.error(`Failed to analyze ${ticker}:`, e.message);
