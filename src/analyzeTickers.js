@@ -54,6 +54,9 @@ function calculateMomentum(closes) {
     SimpleMASignal: false,
   });
 
+  const ema9 = ti.EMA.calculate({ values: closes, period: 9 }).slice(-1)[0];
+  const ema21 = ti.EMA.calculate({ values: closes, period: 21 }).slice(-1)[0];
+
   const macd = macdArr.slice(-1)[0];
 
   return {
@@ -62,6 +65,8 @@ function calculateMomentum(closes) {
     rsi,
     macd: macd?.MACD,
     signal: macd?.signal.toFixed(2),
+    ema9,
+    ema21,
     macdArr,
   };
 }
@@ -100,7 +105,8 @@ async function analyzeAll() {
       const metrics = calculateMomentum(closes);
 
       if (metrics) {
-        results.push({ ticker, ...metrics });
+        const { score, meaning } = calculateScore(metrics);
+        results.push({ ticker, score, meaning, ...metrics });
       }
     } catch (e) {
       console.error(`Failed to analyze ${ticker}:`, e.message);
@@ -258,6 +264,42 @@ function getOverallRecommendation(allPicks) {
   console.table(out);
 }
 
+function calculateScore(metrics) {
+  let score = 0;
+
+  // 7-Day Return
+  if (metrics.return7d > 0.05) score += 2;
+  else if (metrics.return7d > 0) score += 1;
+
+  // RSI
+  if (metrics.rsi > 30 && metrics.rsi < 70) score += 1;
+  if (metrics.rsi < 30 || (metrics.rsi >= 50 && metrics.rsi <= 60)) score += 1;
+
+  // MACD crossover logic
+  const macdSignal = getMacdSignalAction(metrics.macdArr);
+  if (macdSignal.condition === "MACD crosses above Signal (from below)")
+    score += 2;
+  else if (macdSignal.condition === "MACD above Signal (no crossover check)")
+    score += 1;
+
+  // Future (optional): EMA, ADX, OBV, Volume Spike
+  if (metrics.ema9 > metrics.ema21) score += 1;
+  // e.g., if (metrics.adx > 30) score += 2;
+
+  // 8–10: ✅ Strong Buy Candidate
+  // 5–7: 👀 Watchlist / Possible Buy
+  // <5: ❌ Avoid
+
+  let meaning = "Avoid";
+  if (score >= 8 && score <= 10) {
+    meaning = "BUY";
+  } else if (score >= 5 && score <= 7) {
+    meaning = "Watch";
+  }
+
+  return { score, meaning };
+}
+
 // --- MAIN FUNCTIONS ---
 async function getAnalysis() {
   try {
@@ -279,8 +321,21 @@ async function getAnalysis() {
     console.log("-=-=-=- MACD screener -=-=-=-");
     macdTable(allPicks);
 
-    console.log("-=-=-=- Mild Suggestion -=-=-=-");
+    console.log("-=-=-=- Mild Suggestions -=-=-=-");
     getOverallRecommendation(allPicks);
+
+    console.log("-=-=-=- Ranked by Score -=-=-=-");
+    console.table(
+      allPicks
+        .sort((a, b) => b.score - a.score)
+        .map(({ ticker, score, meaning, return7dPercent, rsi }) => ({
+          Ticker: ticker,
+          Score: score,
+          Meaning: meaning,
+          "7D Return": return7dPercent,
+          RSI: rsi.toFixed(2),
+        })),
+    );
   } catch (err) {
     console.error("Bot error: ", err);
   }
