@@ -128,8 +128,8 @@ async function analyzeAll() {
       const metrics = calculateMomentum(closes);
 
       if (metrics) {
-        const { score, meaning } = calculateScore(metrics);
-        results.push({ ticker, score, meaning, ...metrics });
+        const { score, score_meaning } = calculateScore(metrics);
+        results.push({ ticker, score, score_meaning, ...metrics });
       }
     } catch (e) {
       console.error(`Failed to analyze ${ticker}:`, e.message);
@@ -331,14 +331,14 @@ function calculateScore(metrics) {
   // 5–7: 👀 Watchlist / Possible Buy
   // <5: ❌ Avoid
 
-  let meaning = "Avoid";
+  let score_meaning = "Avoid";
   if (score >= 8 && score <= 10) {
-    meaning = "BUY";
+    score_meaning = "BUY";
   } else if (score >= 5 && score <= 7) {
-    meaning = "Watch";
+    score_meaning = "Watch";
   }
 
-  return { score, meaning };
+  return { score, score_meaning };
 }
 
 // --- MAIN FUNCTIONS ---
