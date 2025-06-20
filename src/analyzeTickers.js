@@ -39,7 +39,18 @@ async function getCloses(ticker) {
 
 function calculateMomentum(closes) {
   // MACD requires slowPeriod = 26 + signalPeriod = 9 = >=35 closes
-  if (closes.length < 35) return null;
+  // Noticed bug here -- closes not consistent
+  if (closes.length < 35) {
+    console.info(
+      "Closes less 35. Momentum may be effected. Closes length: " +
+        closes.length,
+    );
+
+    if (closes.length < 30) {
+      console.error("(!!!) Closes less 30! Killing. " + closes.length);
+      return null;
+    }
+  }
 
   const return7d =
     (closes[closes.length - 1] - closes[closes.length - 8]) /
@@ -71,6 +82,18 @@ function calculateMomentum(closes) {
   };
 }
 
+function getPriceFromQuote(quote) {
+  let price = "n/a";
+
+  if (quote.postMarketPrice) {
+    price = quote.postMarketPrice;
+  } else if (quote.preMarketPrice) {
+    price = quote.preMarketPrice;
+  }
+
+  return price;
+}
+
 async function analyzeTops() {
   const results = [];
 
@@ -84,7 +107,7 @@ async function analyzeTops() {
         // pull quote for match
         const quote = await yahoo.quote(ticker);
 
-        results.push({ ticker, quote: quote.postMarketPrice });
+        results.push({ ticker, quote: getPriceFromQuote(quote) });
       }
     } catch (e) {
       console.error(`Failed to analyze ${ticker}:`, e.message);
@@ -330,30 +353,17 @@ async function getAnalysis() {
     );
     console.table(picks);
 
-    console.log("All");
-    console.table(allPicks);
-
     console.log("-=-=-=- Momentum screener -=-=-=-");
-    recommendations(allPicks);
+    recommendations(allPicks.sort((a, b) => b.score - a.score));
 
     console.log("-=-=-=- MACD screener -=-=-=-");
-    macdTable(allPicks);
+    macdTable(allPicks.sort((a, b) => b.score - a.score));
 
     console.log("-=-=-=- Mild Suggestions -=-=-=-");
-    getOverallRecommendation(allPicks);
+    getOverallRecommendation(allPicks.sort((a, b) => b.score - a.score));
 
-    console.log("-=-=-=- Ranked by Score -=-=-=-");
-    console.table(
-      allPicks
-        .sort((a, b) => b.score - a.score)
-        .map(({ ticker, score, meaning, return7dPercent, rsi }) => ({
-          Ticker: ticker,
-          Score: score,
-          Meaning: meaning,
-          "7D Return": return7dPercent,
-          RSI: rsi.toFixed(2),
-        })),
-    );
+    console.log("-=-=-=- All Dump -=-=-=-");
+    console.table(allPicks.sort((a, b) => b.score - a.score));
   } catch (err) {
     console.error("Bot error: ", err);
   }
