@@ -75,7 +75,7 @@ function calculateMomentum(closes) {
     return7dPercent: (return7d * 100).toFixed(2) + "%",
     rsi,
     macd: macd?.MACD,
-    signal: macd?.signal.toFixed(2),
+    signal: macd?.signal ? macd?.signal.toFixed(2) : undefined,
     ema9,
     ema21,
     macdArr,
@@ -83,15 +83,12 @@ function calculateMomentum(closes) {
 }
 
 function getPriceFromQuote(quote) {
-  let price = "n/a";
-
-  if (quote.postMarketPrice) {
-    price = quote.postMarketPrice;
-  } else if (quote.preMarketPrice) {
-    price = quote.preMarketPrice;
-  }
-
-  return price;
+  return (
+    quote.postMarketPrice ??
+    quote.preMarketPrice ??
+    quote.regularMarketPrice ??
+    "n/a"
+  );
 }
 
 async function analyzeTops() {
@@ -295,7 +292,7 @@ function getOverallRecommendation(allPicks) {
       });
     } else {
       out.push({
-        ticket: p.ticker,
+        ticker: p.ticker,
         action: "AVOID",
         reason: "No strong buy signal",
       });
