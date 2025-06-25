@@ -51,7 +51,9 @@ function calculateMomentum(closes) {
       return null;
     }
   }
-
+  const return1d =
+    (closes[closes.length - 1] - closes[closes.length - 2]) /
+    closes[closes.length - 2];
   const return7d =
     (closes[closes.length - 1] - closes[closes.length - 8]) /
     closes[closes.length - 8];
@@ -71,6 +73,8 @@ function calculateMomentum(closes) {
   const macd = macdArr.slice(-1)[0];
 
   return {
+    return1d,
+    return1dPercent: (return1d * 100).toFixed(2) + "%",
     return7d,
     return7dPercent: (return7d * 100).toFixed(2) + "%",
     rsi,
@@ -91,7 +95,7 @@ function getPriceFromQuote(quote) {
   );
 }
 
-async function analyzeTops() {
+async function analyzeTops(period) {
   const results = [];
 
   for (const ticker of TICKERS) {
@@ -99,8 +103,11 @@ async function analyzeTops() {
       const closes = await getCloses(ticker);
       const metrics = calculateMomentum(closes);
 
+      const returnPeriod =
+        period === "weekly" ? metrics.return7d : metrics.return1d;
+
       // Adjustable params
-      if (metrics && metrics.rsi < 70 && metrics.return7d > 0) {
+      if (metrics && metrics.rsi < 70 && returnPeriod > 0) {
         // pull quote for match
         const quote = await yahoo.quote(ticker);
 
@@ -111,9 +118,7 @@ async function analyzeTops() {
     }
   }
 
-  return results
-    .sort((a, b) => parseFloat(b.return7d) - parseFloat(a.return7d))
-    .slice(0, TOP_N);
+  return results;
 }
 
 async function analyzeAll() {
@@ -341,14 +346,22 @@ function calculateScore(metrics) {
 // --- MAIN FUNCTIONS ---
 async function getAnalysis() {
   try {
-    const picks = await analyzeTops();
+    const weeklyPicks = await analyzeTops("weekly");
+    const wpSorted = weeklyPicks
+      .sort((a, b) => parseFloat(b.return7d) - parseFloat(a.return7d))
+      .slice(0, TOP_N);
+    const dailyPicks = await analyzeTops("daily");
+    const dpSorted = dailyPicks
+      .sort((a, b) => parseFloat(b.return1d) - parseFloat(a.return1d))
+      .slice(0, TOP_N);
+
     const allPicks = await analyzeAll();
 
-    console.log(
-      "Top momentum picks: ",
-      picks.map((p) => p.ticker),
-    );
-    console.table(picks);
+    console.log("Top momentum picks (weekly):");
+    console.table(wpSorted);
+
+    console.log("Top momentum picks (daily):");
+    console.table(dpSorted);
 
     console.log("-=-=-=- Momentum screener -=-=-=-");
     recommendations(allPicks.sort((a, b) => b.score - a.score));
@@ -360,7 +373,15 @@ async function getAnalysis() {
     getOverallRecommendation(allPicks.sort((a, b) => b.score - a.score));
 
     console.log("-=-=-=- All Dump -=-=-=-");
-    console.table(allPicks.sort((a, b) => b.score - a.score));
+    // remove macdArr
+    console.table(
+      allPicks
+        .map((p) => {
+          delete p.macdArr;
+          return p;
+        })
+        .sort((a, b) => b.score - a.score),
+    );
   } catch (err) {
     console.error("Bot error: ", err);
   }
