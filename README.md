@@ -1,14 +1,16 @@
 # momentum
 
-Programmatic trading. Really mostly a screener for now.
+Stock analysis. Strategies look at 1day / 7day momentum, MACD, RSI, EMA, scoring, combinations, etc.
 
-Input an array of tickers to get analyzed.
+Input an array of tickers to get analyzed, currently a const.
 
 ![](example.png)
 
 ## Observations
 
-If you start to compare the 7d return to Robinhoods "1W", you'll notice RH sometimes uses 6 days, sometimes 7 days, and regardless, it doesn't always match Yahoo Finance. It also seems to account for time, which isn't consistent across equities, while YF just gets the price at close. Stuck a bit on this one, but it is a wildly interesting (to me) find that it's difficult to reproduce the RH "1W" view.
+I'm tooling around with a front end for this which will eventually be hosted and published.
+
+If you start to compare the 7d return to Robinhoods "1W", you'll notice RH sometimes uses 6 days, sometimes 7 days, and regardless, it doesn't always match Yahoo Finance. It also seems to account for time, which isn't consistent across equities, while YF just gets the price at close. Stuck a bit on this one, but it is a wildly interesting (to me) find that it's difficult to reproduce the RH "1W" view. Obviously the dataset they draw from is richer than a free time at close YF provided dataset, and they use smoothing of some sort.
 
 Exhibit A, 1W here for AS starts on June 12 at 11AM (it is right now June 18 at 11PM).
 
@@ -26,23 +28,9 @@ This code (i.e. THIS REPO) is suggesting a 3.93% drop, which is closer to the cl
 
 I know the UI and graph(s) can't be perfect. Repeat this set of moving targets for each stock. Times, dates, etc.
 
-### Conversation with ChatGPT
+It seems mildly nefarious? Certainly at least part of their secret sauce, to make certain 1W views with bad weeks not look as bad....
 
-#### Prompt
-
-    I have a simple app trading with various strategies: momentum, RSI / MACD / EMA strats, attempt at finding value (though the least fleshed out), etc.
-
-    I've started adding a bit of dashboarding and charting, and I hit a bit of a snag when adding a "1W" view, basically just attempting to copy Robinhood.
-
-    It appears that their data set for constructing this view is inconsistent. Different stocks for the one week timeline will show different starting days, different starting times, different starting prices as opposed to my algo of "time at close".
-
-    This leads to drastically different percentages when using a straightforward "price at close over the last seven days". Either way I slice it, either 7 trading days or for 7 calendar days (meaning weekends are basically filler), I cannot for the life of me find a way to get to Robinhoods 1W views, and especially not when they arbitrarily seem to shift by a whole day.
-
-    I doubt anyone would have insight into this really, it might be part of their secret sauce, but it got me extremely curious as to what they are doing IN this secret sauce before presenting it to a user. Different data set obviously, but the killer is the changing time segments based on what you're trying to look at.
-
-    I also am speculating a bit, but in just a couple hours of poking at it, it would appear artificially that anytime I have a found a pretty bad week (based on my algo), Robinhoods is never quite as bad.
-
-#### Response
+### ChatGPT on RH 1W view:
 
     Your observations are spot-on, and this is a very thoughtful analysis of what might be happening behind the scenes — you're circling a real and nuanced issue: data presentation vs raw performance reality.
 

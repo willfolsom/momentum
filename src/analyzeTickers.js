@@ -15,6 +15,7 @@ const TICKERS = [
   "VRT",
   "BKSY",
   "AS",
+  "KSCP",
 ];
 const LOOKBACK_DAYS = 50;
 const TOP_N = 2;
@@ -356,6 +357,7 @@ async function getAnalysis() {
       .slice(0, TOP_N);
 
     const allPicks = await analyzeAll();
+    const apSorted = allPicks.sort((a, b) => b.score - a.score);
 
     console.log("Top momentum picks (weekly):");
     console.table(wpSorted);
@@ -364,13 +366,13 @@ async function getAnalysis() {
     console.table(dpSorted);
 
     console.log("-=-=-=- Momentum screener -=-=-=-");
-    recommendations(allPicks.sort((a, b) => b.score - a.score));
+    recommendations(apSorted);
 
     console.log("-=-=-=- MACD screener -=-=-=-");
-    macdTable(allPicks.sort((a, b) => b.score - a.score));
+    macdTable(apSorted);
 
     console.log("-=-=-=- Mild Suggestions -=-=-=-");
-    getOverallRecommendation(allPicks.sort((a, b) => b.score - a.score));
+    getOverallRecommendation(apSorted);
 
     console.log("-=-=-=- All Dump -=-=-=-");
     // remove macdArr
