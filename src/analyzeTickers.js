@@ -16,6 +16,10 @@ const TICKERS = [
   "BKSY",
   "AS",
   "KSCP",
+  "ABAT",
+  "ASPN",
+  "RDW",
+  "CELH",
 ];
 const LOOKBACK_DAYS = 50;
 const TOP_N = 2;
