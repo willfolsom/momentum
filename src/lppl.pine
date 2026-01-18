@@ -1,0 +1,52 @@
+//@version=6
+indicator("LPPL Risk Oscillator + Signals", overlay=false)
+
+// === Inputs ===
+len = input.int(120, "Lookback Length", minval=30)
+omega = input.float(6.5, "Oscillation Frequency", step=0.1)
+m = input.float(0.6, "Curvature (0 < m < 1)", step=0.05)
+
+// Signal thresholds
+buyLevel  = input.float(-1.0, "Buy Threshold")
+sellLevel = input.float(1.0, "Sell Threshold")
+
+// === Log price ===
+log_price = math.log(close)
+
+// Normalize price
+mean_lp = ta.sma(log_price, len)
+std_lp  = ta.stdev(log_price, len)
+price_norm = (log_price - mean_lp) / std_lp
+
+// === Rolling time-to-critical proxy ===
+dt = float(len) - (bar_index % len)
+dt := math.max(dt, 1)
+
+// LPPL-style oscillation (normalized)
+lppl_raw = math.pow(dt, m) * math.cos(omega * math.log(dt))
+lppl_norm = (lppl_raw - ta.sma(lppl_raw, len)) / ta.stdev(lppl_raw, len)
+
+// === LPPL Risk ===
+lppl_risk = price_norm - lppl_norm
+
+// === Momentum confirmation ===
+risk_ema = ta.ema(lppl_risk, 5)
+risk_slope = risk_ema - risk_ema[1]
+
+// === Signals ===
+buySignal  = ta.crossover(lppl_risk, buyLevel)  and risk_slope > 0
+sellSignal = ta.crossunder(lppl_risk, sellLevel) and risk_slope < 0
+
+// === Plot ===
+plot(lppl_risk, title="LPPL Risk", linewidth=2)
+hline(0, "Neutral", color=color.gray)
+hline(buyLevel, "Buy Zone", color=color.green)
+hline(sellLevel, "Sell Zone", color=color.red)
+
+// Signal markers
+plotshape(buySignal,  title="BUY",  style=shape.triangleup,   location=location.bottom, color=color.green, size=size.small)
+plotshape(sellSignal, title="SELL", style=shape.triangledown, location=location.top,    color=color.red,   size=size.small)
+
+// === Alerts ===
+alertcondition(buySignal,  title="LPPL Buy",  message="LPPL Risk Buy Signal")
+alertcondition(sellSignal, title="LPPL Sell", message="LPPL Risk Sell Signal")
