@@ -1,0 +1,207 @@
+//@version=6
+indicator("LPPL Fit Tester (Timeframe Adaptive)", overlay=true)
+
+// === Critical Time Input ===
+// Specify how many BARS into the future tc is (easier than dates)
+tc_bars_ahead = input.int(50, "Critical Time (bars ahead)", minval=1, maxval=500)
+
+// === LPPL Parameters ===
+m_exp = input.float(0.3, "Power Law Exponent (m)", minval=0.01, maxval=0.99, step=0.05)
+omega = input.float(6.0, "Angular Frequency (ω)", minval=1.0, maxval=15.0, step=0.5)
+phi = input.float(0.0, "Phase Shift (φ)", minval=-3.14, maxval=3.14, step=0.1)
+
+// === Fitting Window ===
+lookback = input.int(100, "Lookback Bars for Fit", minval=30, maxval=500)
+
+// === Visual Options ===
+show_fit = input.bool(true, "Show LPPL Fit Curve")
+show_bands = input.bool(true, "Show Deviation Bands")
+
+// === Signal Settings ===
+enable_signals = input.bool(true, "Enable Buy/Sell Signals")
+deviation_threshold = input.float(3.0, "Deviation Threshold (%)", minval=0.5, maxval=10.0, step=0.5)
+
+// ================================================
+// LPPL CALCULATION
+// ================================================
+
+// Arrays to store fitted coefficients (to avoid recalculation)
+var float A = na
+var float B = na
+var float C = na
+
+// Current bar as time reference
+t = bar_index
+tc = bar_index + tc_bars_ahead  // Critical time in bar_index terms
+
+// Recalculate fit coefficients
+sum_y = 0.0
+sum_x1 = 0.0
+sum_x2 = 0.0
+sum_x1_sq = 0.0
+sum_x2_sq = 0.0
+sum_x1_x2 = 0.0
+sum_x1_y = 0.0
+sum_x2_y = 0.0
+n = 0
+
+// Accumulate sums for linear regression over lookback window
+for i = 0 to math.min(lookback - 1, bar_index)
+    t_i = bar_index - i
+    dt = tc - t_i  // Time to critical point
+    
+    if dt > 0.1  // Avoid numerical issues near tc
+        y = math.log(close[i])
+        
+        // LPPL basis functions:
+        // ln(p) = A + B*(tc-t)^m + C*(tc-t)^m*cos(ω*ln(tc-t) + φ)
+        dt_m = math.pow(dt, m_exp)
+        x1 = dt_m
+        x2 = dt_m * math.cos(omega * math.log(dt) + phi)
+        
+        sum_y += y
+        sum_x1 += x1
+        sum_x2 += x2
+        sum_x1_sq += x1 * x1
+        sum_x2_sq += x2 * x2
+        sum_x1_x2 += x1 * x2
+        sum_x1_y += x1 * y
+        sum_x2_y += x2 * y
+        n += 1
+
+// Solve for A, B, C using linear regression
+if n > 10
+    // Mean values
+    mean_y = sum_y / n
+    mean_x1 = sum_x1 / n
+    mean_x2 = sum_x2 / n
+    
+    // Centered sums
+    ss_x1 = sum_x1_sq - n * mean_x1 * mean_x1
+    ss_x2 = sum_x2_sq - n * mean_x2 * mean_x2
+    ss_x1_x2 = sum_x1_x2 - n * mean_x1 * mean_x2
+    ss_x1_y = sum_x1_y - n * mean_x1 * mean_y
+    ss_x2_y = sum_x2_y - n * mean_x2 * mean_y
+    
+    // Solve 2x2 system for B and C
+    det = ss_x1 * ss_x2 - ss_x1_x2 * ss_x1_x2
+    
+    if math.abs(det) > 0.0001
+        B := (ss_x2 * ss_x1_y - ss_x1_x2 * ss_x2_y) / det
+        C := (ss_x1 * ss_x2_y - ss_x1_x2 * ss_x1_y) / det
+        A := mean_y - B * mean_x1 - C * mean_x2
+
+// Calculate LPPL price for current bar
+var float lppl_price = na
+dt_now = tc - bar_index
+
+if dt_now > 0.1 and not na(A)
+    dt_m_now = math.pow(dt_now, m_exp)
+    x1_now = dt_m_now
+    x2_now = dt_m_now * math.cos(omega * math.log(dt_now) + phi)
+    
+    ln_lppl = A + B * x1_now + C * x2_now
+    lppl_price := math.exp(ln_lppl)
+
+// Calculate deviation percentage
+var float deviation_pct = na
+if not na(lppl_price) and lppl_price > 0
+    deviation_pct := ((close - lppl_price) / lppl_price) * 100
+
+// ================================================
+// SIGNAL GENERATION
+// ================================================
+
+// Simple signal logic: price crosses threshold
+buySignal = false
+sellSignal = false
+
+if enable_signals and not na(deviation_pct)
+    // BUY: Price just crossed below lower threshold
+    buySignal := ta.crossunder(deviation_pct, -deviation_threshold)
+    
+    // SELL: Price just crossed above upper threshold
+    sellSignal := ta.crossover(deviation_pct, deviation_threshold)
+
+// ================================================
+// PLOTTING
+// ================================================
+
+// Plot actual price (for reference)
+plot(close, title="Actual Price", color=color.new(color.gray, 70), linewidth=1)
+
+// Plot LPPL fitted curve
+plot(show_fit ? lppl_price : na, title="LPPL Fit", 
+     color=color.new(color.blue, 20), linewidth=2, style=plot.style_line)
+
+// Plot deviation bands
+upper_band = lppl_price * (1 + deviation_threshold / 100)
+lower_band = lppl_price * (1 - deviation_threshold / 100)
+plot(show_bands ? upper_band : na, title="Upper Band", color=color.new(color.red, 70), linewidth=1, style=plot.style_circles)
+plot(show_bands ? lower_band : na, title="Lower Band", color=color.new(color.green, 70), linewidth=1, style=plot.style_circles)
+
+// Fill between bands
+fill_upper = plot(show_bands ? upper_band : na, display=display.none)
+fill_lower = plot(show_bands ? lower_band : na, display=display.none)
+fill(fill_upper, fill_lower, color=color.new(color.blue, 95))
+
+// Signal markers - THESE SHOULD NOW APPEAR
+plotshape(buySignal, title="BUY", 
+          style=shape.triangleup, location=location.belowbar, 
+          color=color.new(color.lime, 0), size=size.normal, text="BUY")
+          
+plotshape(sellSignal, title="SELL", 
+          style=shape.triangledown, location=location.abovebar, 
+          color=color.new(color.red, 0), size=size.normal, text="SELL")
+
+// Visual guide: vertical line at tc
+var line tc_line = na
+if barstate.islast
+    line.delete(tc_line)
+    tc_line := line.new(bar_index + tc_bars_ahead, low * 0.95, 
+                        bar_index + tc_bars_ahead, high * 1.05, 
+                        color=color.new(color.orange, 30), 
+                        style=line.style_dashed, width=2,
+                        extend=extend.both)
+
+// Info box with diagnostics
+var table info = table.new(position.top_right, 2, 8, bgcolor=color.new(color.black, 85), 
+                           border_color=color.gray, border_width=1)
+if barstate.islast
+    table.cell(info, 0, 0, "LPPL Diagnostics", text_color=color.yellow, text_size=size.small, bgcolor=color.new(color.navy, 70))
+    table.cell(info, 1, 0, "", text_color=color.white, text_size=size.small, bgcolor=color.new(color.navy, 70))
+    
+    table.cell(info, 0, 1, "tc (bars)", text_color=color.gray, text_size=size.tiny)
+    table.cell(info, 1, 1, str.tostring(tc_bars_ahead), text_color=color.white, text_size=size.tiny)
+    
+    table.cell(info, 0, 2, "m / ω / φ", text_color=color.gray, text_size=size.tiny)
+    table.cell(info, 1, 2, str.tostring(m_exp, "#.##") + " / " + str.tostring(omega, "#.#") + " / " + str.tostring(phi, "#.##"), 
+               text_color=color.white, text_size=size.tiny)
+    
+    table.cell(info, 0, 3, "Fitted A", text_color=color.gray, text_size=size.tiny)
+    table.cell(info, 1, 3, not na(A) ? str.tostring(A, "#.###") : "N/A", 
+               text_color=not na(A) ? color.white : color.red, text_size=size.tiny)
+    
+    table.cell(info, 0, 4, "LPPL Price", text_color=color.gray, text_size=size.tiny)
+    table.cell(info, 1, 4, not na(lppl_price) ? str.tostring(lppl_price, "#.##") : "N/A", 
+               text_color=not na(lppl_price) ? color.white : color.red, text_size=size.tiny)
+    
+    table.cell(info, 0, 5, "Deviation %", text_color=color.gray, text_size=size.tiny)
+    table.cell(info, 1, 5, not na(deviation_pct) ? str.tostring(deviation_pct, "#.##") + "%" : "N/A", 
+               text_color=not na(deviation_pct) ? (deviation_pct > 0 ? color.red : color.lime) : color.gray, 
+               text_size=size.tiny)
+    
+    table.cell(info, 0, 6, "Threshold", text_color=color.gray, text_size=size.tiny)
+    table.cell(info, 1, 6, "±" + str.tostring(deviation_threshold, "#.#") + "%", 
+               text_color=color.orange, text_size=size.tiny)
+    
+    table.cell(info, 0, 7, "Status", text_color=color.gray, text_size=size.tiny)
+    status_text = not na(deviation_pct) ? (deviation_pct > deviation_threshold ? "OVERBOUGHT" : 
+                  deviation_pct < -deviation_threshold ? "OVERSOLD" : "NEUTRAL") : "NO FIT"
+    status_color = not na(deviation_pct) ? (deviation_pct > deviation_threshold ? color.red : 
+                   deviation_pct < -deviation_threshold ? color.lime : color.yellow) : color.gray
+    table.cell(info, 1, 7, status_text, text_color=status_color, text_size=size.tiny)
+
+// Alerts
+alertcondition(buySignal, title="LPPL Buy Signal", message="{{ticker}} - Price crossed below LPPL model ({{close}})")
+alertcondition(sellSignal, title="LPPL Sell Signal", message="{{ticker}} - Price crossed above LPPL model ({{close}})")
