@@ -11,7 +11,12 @@ Stock analysis stuff.
 
 ![](example2.png)
 
-+ Alpaca buy / sell example
++ LPPL V2
+
+![](example3.png)
+
++ [Alpaca buy / sell example
+](https://github.com/willfolsom/momentum/blob/main/src/momentum_alpaca.js)
 
 ## Observations
 
